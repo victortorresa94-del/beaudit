@@ -1,0 +1,15 @@
+# Credentials — NEVER commit
+.env
+Credenciales.txt
+
+# Design System (local only)
+BeServices Design System/
+
+# Reference file (local only)
+beaudit_security_dashboard.html
+
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel/
