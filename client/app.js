@@ -375,21 +375,25 @@ function renderUsers(users) {
   var container = document.getElementById('user-list');
   var moreEl    = document.getElementById('users-more');
   if (!container || !users || !users.list || !users.list.length) return;
-  var SHOW = 8, list = users.list.slice(0, SHOW);
-  container.innerHTML = list.map(function(u) {
-    return '<div class="user-row">' +
-      '<div class="user-avatar">' + getInitials(u.displayName || u.userPrincipalName || '?') + '</div>' +
+
+  // Sort: sin MFA primero
+  var sorted = users.list.slice().sort(function(a, b) {
+    if (a.hasMfa === b.hasMfa) return (a.displayName || '').localeCompare(b.displayName || '');
+    return a.hasMfa ? 1 : -1;
+  });
+
+  container.innerHTML = sorted.map(function(u) {
+    var noMfa = !u.hasMfa;
+    return '<div class="user-row"' + (noMfa ? ' style="background:rgba(220,38,38,.03)"' : '') + '>' +
+      '<div class="user-avatar" style="background:' + (noMfa ? 'var(--critical)' : 'var(--navy)') + '">' + getInitials(u.displayName || u.userPrincipalName || '?') + '</div>' +
       '<span class="user-name">'  + escHtml(u.displayName || '—') + '</span>' +
       '<span class="user-email">' + escHtml(u.userPrincipalName || '') + '</span>' +
       '<span class="user-tag ' + (u.hasMfa ? 'mfa-ok' : 'mfa-no') + '">' + (u.hasMfa ? 'MFA' : 'Sin MFA') + '</span>' +
     '</div>';
   }).join('');
-  setEl('users-header-count', users.total || '');
-  if (moreEl) {
-    var rem = (users.total || 0) - SHOW;
-    if (rem > 0) { moreEl.style.display = ''; moreEl.textContent = '+' + rem + ' usuarios mas'; }
-    else moreEl.style.display = 'none';
-  }
+
+  setEl('users-header-count', users.total || sorted.length);
+  if (moreEl) moreEl.style.display = 'none';  // todos visibles, no hay "más"
 }
 
 // ── RECOMMENDATION ─────────────────────────────────────────────
@@ -520,24 +524,49 @@ function buildRiskDataSection(risk, data) {
   switch (risk.id) {
 
     case 'mfa_disabled': {
-      var userList  = (users.list || []).filter(function(u) { return !u.hasMfa; });
-      var total     = users.total || 0;
-      var withMfa   = users.withMfa || (total - (users.withoutMfa || 0));
+      var allUsers  = users.list || [];
+      var total     = users.total || allUsers.length;
+      var withMfa   = users.withMfa != null ? users.withMfa : allUsers.filter(function(u){ return u.hasMfa; }).length;
+      var withoutMfa= users.withoutMfa != null ? users.withoutMfa : allUsers.filter(function(u){ return !u.hasMfa; }).length;
       var pct       = total > 0 ? Math.round((withMfa / total) * 100) : 0;
+
+      // Sort: sin MFA primero, luego con MFA — ambos alfabéticos
+      var sorted = allUsers.slice().sort(function(a, b) {
+        if (a.hasMfa === b.hasMfa) return (a.displayName || '').localeCompare(b.displayName || '');
+        return a.hasMfa ? 1 : -1;   // sin MFA arriba
+      });
+
       var stats =
         '<div class="drawer-stats">' +
-          '<div class="drawer-stat bad"><div class="drawer-stat-val">' + userList.length + '</div><div class="drawer-stat-lbl">Sin MFA</div></div>' +
-          '<div class="drawer-stat ok"><div class="drawer-stat-val">'  + withMfa        + '</div><div class="drawer-stat-lbl">Con MFA</div></div>' +
+          '<div class="drawer-stat bad"><div class="drawer-stat-val">' + withoutMfa + '</div><div class="drawer-stat-lbl">Sin MFA</div></div>' +
+          '<div class="drawer-stat ok"><div class="drawer-stat-val">'  + withMfa    + '</div><div class="drawer-stat-lbl">Con MFA</div></div>' +
           '<div class="drawer-stat ' + (pct >= 80 ? 'ok' : pct >= 50 ? 'warn' : 'bad') + '"><div class="drawer-stat-val">' + pct + '%</div><div class="drawer-stat-lbl">Cobertura</div></div>' +
         '</div>';
-      var rows = userList.slice(0, 30).map(function(u) {
-        return '<tr><td><span class="dt-avatar">' + getInitials(u.displayName || '?') + '</span><span class="dt-name">' + escHtml(u.displayName || '—') + '</span><br><span class="dt-email">' + escHtml(u.userPrincipalName || '') + '</span></td><td><span class="dt-badge bad">Sin MFA</span></td></tr>';
+
+      var rows = sorted.map(function(u) {
+        var mfaCls = u.hasMfa ? 'ok' : 'bad';
+        var mfaTxt = u.hasMfa ? 'MFA activo' : 'Sin MFA';
+        var rowStyle = u.hasMfa ? '' : ' style="background:rgba(220,38,38,.03)"';
+        return '<tr' + rowStyle + '>' +
+          '<td>' +
+            '<span class="dt-avatar" style="background:' + (u.hasMfa ? 'var(--navy)' : 'var(--critical)') + '">' + getInitials(u.displayName || '?') + '</span>' +
+            '<span class="dt-name">' + escHtml(u.displayName || '—') + '</span>' +
+            '<br><span class="dt-email">' + escHtml(u.userPrincipalName || '') + '</span>' +
+          '</td>' +
+          '<td><span class="dt-badge ' + mfaCls + '">' + mfaTxt + '</span></td>' +
+        '</tr>';
       }).join('');
+
       return '<div class="drawer-section">' + stats + '</div>' +
         '<div class="drawer-section">' +
-          '<div class="drawer-section-title">Usuarios sin autenticacion multifactor (' + userList.length + ')</div>' +
-          '<table class="detail-table"><thead><tr><th>Usuario</th><th>Estado MFA</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-          (userList.length > 30 ? '<div style="padding:10px 12px;font-size:.78rem;color:var(--gray-400)">... y ' + (userList.length - 30) + ' mas</div>' : '') +
+          '<div class="drawer-section-title" style="display:flex;justify-content:space-between">' +
+            '<span>Todos los usuarios con licencia (' + total + ')</span>' +
+            '<span style="font-weight:400;color:var(--critical)">' + withoutMfa + ' sin MFA arriba</span>' +
+          '</div>' +
+          '<table class="detail-table">' +
+            '<thead><tr><th>Usuario</th><th>Estado MFA</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+          '</table>' +
         '</div>';
     }
 

@@ -911,7 +911,7 @@ body {
 }
 #detail-drawer.open .drawer-backdrop { opacity: 1; }
 .drawer-panel {
-  width: 520px; max-width: 92vw; background: var(--white);
+  width: 600px; max-width: 96vw; background: var(--white);
   box-shadow: -8px 0 40px rgba(0,0,0,.18);
   display: flex; flex-direction: column;
   transform: translateX(100%);
