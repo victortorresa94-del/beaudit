@@ -121,12 +121,13 @@ function renderDashboard(data){
   renderServices(security);
   renderCoverage(data);
   renderPositives(pos,'positives-grid','positives-meta');
+  renderZeroTrust(data);
 
   // Users page
   renderUsersPage(users);
 
   // Risks page
-  renderRisksPage(risks,pos,lics);
+  renderRisksPage(risks,pos,lics,data.secureScoreControls);
 
   // Recommendations page
   renderRecommendationsPage(rec,risks);
@@ -199,7 +200,7 @@ function renderRisksOverview(risks){
 }
 
 // ── RISKS FULL PAGE ────────────────────────────────────────────
-function renderRisksPage(risks,pos,lics){
+function renderRisksPage(risks,pos,lics,ssControls){
   var rArr=risks.risks||[];
   setEl('risks-kpi-critical',risks.criticalCount||0);
   setEl('risks-kpi-high',risks.highCount||0);
@@ -214,6 +215,7 @@ function renderRisksPage(risks,pos,lics){
 
   renderPositives(pos,'positives-grid-2','positives-meta-2');
   renderLicenses(lics);
+  renderSecureScoreControls(ssControls);
 }
 
 // ── SERVICES + COVERAGE + POSITIVES ───────────────────────────
@@ -618,8 +620,182 @@ function buildRiskDataSection(risk,data){
       return '<div class="drawer-section"><div class="drawer-stats"><div class="drawer-stat bad"><div class="drawer-stat-val">'+pct2+'%</div><div class="drawer-stat-lbl">Tu puntuacion</div></div><div class="drawer-stat"><div class="drawer-stat-val">'+(ss2.currentScore||0)+'</div><div class="drawer-stat-lbl">Puntos actuales</div></div><div class="drawer-stat"><div class="drawer-stat-val">'+(ss2.maxScore||0)+'</div><div class="drawer-stat-lbl">Puntos maximos</div></div></div></div>'+
         '<div class="drawer-section"><div class="drawer-section-title">Que evalua</div><div style="font-size:.875rem;color:var(--gray-600);line-height:1.7">Microsoft analiza cientos de configuraciones de seguridad. Una puntuacion baja indica multiples controles sin configurar que aumentan la superficie de ataque.</div></div>';
     }
+    case 'too_many_global_admins':{
+      var ss3=data.securitySettings||{},roles=ss3.adminRoles||[];
+      var gRole=roles.find(function(r){return r.name==='Global Administrator';})||{memberCount:0,members:[]};
+      var content='<div class="drawer-section"><div class="drawer-stats"><div class="drawer-stat bad"><div class="drawer-stat-val">'+gRole.memberCount+'</div><div class="drawer-stat-lbl">Global Admins</div></div><div class="drawer-stat warn"><div class="drawer-stat-val">3</div><div class="drawer-stat-lbl">Recomendado max</div></div></div></div>';
+      if(roles.length){
+        content+='<div class="drawer-section"><div class="drawer-section-title">Roles privilegiados detectados</div>'+
+          '<table class="detail-table"><thead><tr><th>Rol</th><th>Miembros</th></tr></thead><tbody>'+
+          roles.map(function(r){ return '<tr><td class="dt-name">'+escHtml(r.name)+'</td><td>'+r.memberCount+'</td></tr>'; }).join('')+
+          '</tbody></table></div>';
+      }
+      if(gRole.members&&gRole.members.length){
+        content+='<div class="drawer-section"><div class="drawer-section-title">Administradores globales</div>'+
+          '<table class="detail-table"><thead><tr><th>Usuario</th><th>Email</th></tr></thead><tbody>'+
+          gRole.members.map(function(m){return '<tr><td class="dt-name">'+escHtml(m.name||'—')+'</td><td class="dt-email">'+escHtml(m.email||'—')+'</td></tr>';}).join('')+
+          '</tbody></table></div>';
+      }
+      return content;
+    }
+    case 'guest_access_open':{
+      var ss4=data.securitySettings||{};
+      var policyMap={'none':'Solo administradores (optimo)','adminsAndGuestInviters':'Admins + rol Guest Inviter','adminsGuestInvitersAndAllMembers':'Admins + rol Inviter + TODOS los miembros','everyone':'Cualquier usuario incluyendo invitados'};
+      var pol=ss4.guestInvitePolicy||'desconocida';
+      return '<div class="drawer-section"><div class="drawer-section-title">Configuracion actual</div>'+
+        '<table class="detail-table"><tbody>'+
+        '<tr><td>Politica de invitacion de invitados</td><td><span class="dt-badge warn">'+escHtml(policyMap[pol]||pol)+'</span></td></tr>'+
+        '<tr><td>Rol de invitado restringido</td><td><span class="dt-badge '+(ss4.guestRoleRestricted?'ok':'bad')+'">'+(ss4.guestRoleRestricted?'Si (seguro)':'No (arriesgado)')+'</span></td></tr>'+
+        '</tbody></table></div>'+
+        '<div class="drawer-section"><div class="drawer-section-title">Que significa</div><div style="font-size:.875rem;color:var(--gray-600);line-height:1.7">Con esta politica, usuarios del tenant pueden invitar cuentas externas a Microsoft Teams y SharePoint sin supervision de TI, creando riesgo de fuga de datos o acceso no autorizado.</div></div>';
+    }
+    case 'no_security_defaults':{
+      var ss5=data.securitySettings||{};
+      return '<div class="drawer-section"><div class="drawer-section-title">Estado de la proteccion base</div>'+
+        '<table class="detail-table"><tbody>'+
+        '<tr><td>Security Defaults de Microsoft</td><td><span class="dt-badge '+(ss5.securityDefaultsEnabled?'ok':'bad')+'">'+(ss5.securityDefaultsEnabled?'Activos':'Desactivados')+'</span></td></tr>'+
+        '<tr><td>Acceso Condicional configurado</td><td><span class="dt-badge '+(data.security&&data.security.conditionalAccess?'ok':'bad')+'">'+(data.security&&data.security.conditionalAccess?'Si':'No')+'</span></td></tr>'+
+        '</tbody></table></div>'+
+        '<div class="drawer-section"><div class="drawer-section-title">Que bloquean los Security Defaults</div><div style="font-size:.875rem;color:var(--gray-600);line-height:1.7"><p style="margin-bottom:8px">Los Security Defaults son la linea de defensa minima de Microsoft. Sin ellos ni CA, los atacantes pueden usar <strong>autenticacion heredada (SMTP, POP3, IMAP)</strong> que <strong>no soporta MFA</strong>, haciendo inutil cualquier politica de segundo factor.</p><p>Afecta a: ataques de password spray, credential stuffing y acceso desde apps antiguas de Outlook.</p></div></div>';
+    }
     default: return '<div class="drawer-section"><div class="drawer-desc">'+escHtml(risk.description)+'</div></div>';
   }
+}
+
+// ── ZERO TRUST ASSESSMENT ──────────────────────────────────────
+function renderZeroTrust(data){
+  var c=document.getElementById('zt-pillars'); if(!c) return;
+  var sec=data.security||{},users=data.users||{},devices=data.devices||{};
+  var tot=users.total||1,mfaPct=Math.round(((tot-(users.withoutMfa||0))/tot)*100);
+  var ss=sec.secureScore||{};
+
+  // Score each pillar 0-100
+  var PILLARS=[
+    {
+      id:'identity', name:'Identidad', icon:'👤',
+      desc:'MFA, Acceso Condicional, Entra ID, roles privilegiados',
+      score: (function(){
+        var pts=0;
+        if(mfaPct>=80)pts+=35; else if(mfaPct>=50)pts+=15;
+        if(sec.conditionalAccess)pts+=30;
+        if(sec.entraP1)pts+=20;
+        var ss2=data.securitySettings||{};
+        if(ss2.securityDefaultsEnabled||sec.conditionalAccess)pts+=15;
+        return Math.min(100,pts);
+      })()
+    },
+    {
+      id:'devices', name:'Dispositivos', icon:'💻',
+      desc:'Intune MDM, cumplimiento, EDR en endpoints',
+      score: (function(){
+        var pts=0;
+        if(sec.intune)pts+=40; if(sec.edr)pts+=40;
+        if(devices.available&&devices.total>0){
+          var cPct=Math.round((devices.compliant/Math.max(devices.total,1))*100);
+          pts+=Math.round(cPct*0.2);
+        }
+        return Math.min(100,pts);
+      })()
+    },
+    {
+      id:'apps', name:'Aplicaciones', icon:'📱',
+      desc:'Defender for Office, Safe Links, anti-phishing, CASB',
+      score: (function(){
+        var pts=0;
+        if(sec.defenderOffice)pts+=60;
+        if(sec.conditionalAccess)pts+=25;
+        if(sec.purview)pts+=15;
+        return Math.min(100,pts);
+      })()
+    },
+    {
+      id:'data', name:'Datos', icon:'📄',
+      desc:'Purview DLP, clasificacion, backup externo',
+      score: (function(){
+        var pts=0;
+        if(sec.purview)pts+=45;
+        if(sec.backup)pts+=40;
+        var ext=data.security&&data.security.externalSharing;
+        if(!ext||!ext.sitesWithExternal||ext.sitesWithExternal===0)pts+=15;
+        return Math.min(100,pts);
+      })()
+    },
+    {
+      id:'infra', name:'Infraestructura', icon:'🏗️',
+      desc:'Secure Score, roles admin, auditoria, SIEM',
+      score: (function(){
+        var pts=0;
+        var ssPct=ss.percentage||0;
+        pts+=Math.round(ssPct*0.5);
+        var ss2=data.securitySettings||{};
+        if(ss2.globalAdminCount>0&&ss2.globalAdminCount<=3)pts+=25;
+        else if(ss2.globalAdminCount===0)pts+=10;
+        if(ss2.guestRoleRestricted)pts+=25;
+        return Math.min(100,pts);
+      })()
+    },
+    {
+      id:'network', name:'Red', icon:'🌐',
+      desc:'Acceso Condicional por ubicacion, segmentacion, VPN',
+      score: (function(){
+        var pts=0;
+        if(sec.conditionalAccess)pts+=60; // CA covers network conditions
+        if(sec.entraP1)pts+=20;
+        if(sec.intune)pts+=20; // compliance-based network access
+        return Math.min(100,pts);
+      })()
+    }
+  ];
+
+  var overall=Math.round(PILLARS.reduce(function(s,p){return s+p.score;},0)/PILLARS.length);
+
+  c.innerHTML='<div class="zt-overall"><div class="zt-overall-val">'+overall+'<span>%</span></div><div class="zt-overall-lbl">Madurez Zero Trust global</div></div>'+
+  '<div class="zt-grid">'+
+  PILLARS.map(function(p){
+    var cls=p.score>=70?'good':p.score>=40?'warn':'bad';
+    return '<div class="zt-pillar"><div class="zt-pillar-icon">'+p.icon+'</div>'+
+      '<div class="zt-pillar-name">'+p.name+'</div>'+
+      '<div class="zt-pillar-score '+(p.score>=70?'ok':p.score>=40?'warn':'bad')+'">'+p.score+'%</div>'+
+      '<div class="bar-track" style="margin-top:6px"><div class="bar-fill '+cls+'" style="width:0%" data-target="'+p.score+'"></div></div>'+
+      '<div class="zt-pillar-desc">'+p.desc+'</div>'+
+    '</div>';
+  }).join('')+
+  '</div>';
+  requestAnimationFrame(function(){c.querySelectorAll('.bar-fill').forEach(function(el){el.style.width=el.getAttribute('data-target')+'%';});});
+}
+
+// ── SECURE SCORE CONTROLS ──────────────────────────────────────
+var COST_ICONS={low:'⚡',moderate:'🔧',high:'🏗️'};
+function renderSecureScoreControls(ssControls){
+  var panel=document.getElementById('ss-controls-panel'); if(!panel) return;
+  if(!ssControls||!ssControls.available||!ssControls.controls||!ssControls.controls.length){ panel.style.display='none'; return; }
+  panel.style.display='';
+  var top=ssControls.controls.slice(0,15); // top 15 by improvement potential
+  setEl('ss-controls-meta','Top '+top.length+' acciones — '+ssControls.controls.reduce(function(s,c){return s+(c.maxScore-c.score);},0).toFixed(0)+' puntos de mejora posibles');
+  var c=document.getElementById('ss-controls-list'); if(!c) return;
+  c.innerHTML=top.map(function(ctrl){
+    var gained=ctrl.score,gain=ctrl.maxScore-ctrl.score;
+    var pct=ctrl.maxScore>0?Math.round((gained/ctrl.maxScore)*100):0;
+    var cls=pct>=80?'ok':pct>=40?'warn':'bad';
+    var costIcon=COST_ICONS[ctrl.implementationCost]||'🔧';
+    return '<div class="ss-ctrl-row">'+
+      '<div class="ss-ctrl-main">'+
+        '<div class="ss-ctrl-title">'+escHtml(ctrl.title)+'</div>'+
+        '<div class="ss-ctrl-meta"><span class="ss-ctrl-cat">'+escHtml(ctrl.category)+'</span>'+
+          (ctrl.implementationCost?'<span class="ss-ctrl-cost" title="Coste de implementacion: '+ctrl.implementationCost+'">'+costIcon+' '+ctrl.implementationCost+'</span>':'')+
+          (ctrl.userImpact&&ctrl.userImpact!=='none'?'<span class="ss-ctrl-impact">👤 '+ctrl.userImpact+' impacto en usuario</span>':'')+
+        '</div>'+
+        (ctrl.remediation?'<div class="ss-ctrl-desc">'+escHtml(ctrl.remediation.substring(0,180))+(ctrl.remediation.length>180?'…':'')+'</div>':'')+
+      '</div>'+
+      '<div class="ss-ctrl-score">'+
+        '<div class="ss-ctrl-pts '+(gain>0?'gain':'done')+'">'+
+          (gain>0?'+'+gain.toFixed(0)+' pts':gained.toFixed(0)+'/'+ctrl.maxScore.toFixed(0)+'pts')+
+        '</div>'+
+        '<div class="bar-track" style="width:80px;margin-top:4px"><div class="bar-fill '+cls+'" style="width:0%" data-target="'+pct+'"></div></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  requestAnimationFrame(function(){c.querySelectorAll('.bar-fill').forEach(function(el){el.style.width=el.getAttribute('data-target')+'%';});});
 }
 
 // ── CONTACT MODAL ──────────────────────────────────────────────

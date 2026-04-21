@@ -116,6 +116,52 @@ const RISK_MATRIX = [
     affectedArea: 'Licencias',
     microsoftFix: 'Actualizar a Business Premium o superior',
     beservicesFix: 'besafe_essentials'
+  },
+  // ── NEW checks from monkey365 / Zero Trust framework ──────────────────────
+  {
+    id: 'too_many_global_admins',
+    check: (data) => {
+      const count = data.securitySettings?.globalAdminCount;
+      return (count !== null && count !== 0 && count > 3) ? count : null;
+    },
+    level: 'high',
+    title: (count) => `${count} administradores globales activos`,
+    description: 'Demasiadas cuentas con privilegios máximos amplían la superficie de ataque. Se recomienda máximo 2-3 con PIM.',
+    affectedArea: 'Identidad',
+    microsoftFix: 'Privileged Identity Management (PIM) — Entra ID P2',
+    beservicesFix: 'besafe_advanced'
+  },
+  {
+    id: 'guest_access_open',
+    check: (data) => {
+      const policy = data.securitySettings?.guestInvitePolicy;
+      const restricted = data.securitySettings?.guestRoleRestricted;
+      // Flag if everyone can invite guests OR guest role is not restricted
+      return (policy === 'everyone' || policy === 'adminsGuestInvitersAndAllMembers' || restricted === false) ? true : null;
+    },
+    level: 'medium',
+    title: () => 'Politica de invitados demasiado permisiva',
+    description: 'Cualquier usuario puede invitar cuentas externas (invitados) al tenant. Riesgo de fuga de datos.',
+    affectedArea: 'Identidad',
+    microsoftFix: 'Entra ID — Restriccion de invitaciones solo a administradores',
+    beservicesFix: 'besafe_essentials'
+  },
+  {
+    id: 'no_security_defaults',
+    check: (data) => {
+      const sec = data.securitySettings;
+      if (!sec) return null;
+      // Only flag if security defaults are explicitly disabled AND no CA policies (otherwise CA is better)
+      const caEnabled = data.conditionalAccess?.enabled > 0;
+      if (caEnabled) return null; // CA replaces security defaults — fine
+      return sec.securityDefaultsEnabled === false ? true : null;
+    },
+    level: 'critical',
+    title: () => 'Security Defaults desactivados sin Acceso Condicional',
+    description: 'Los Security Defaults de Microsoft bloquean la autenticacion heredada (legacy auth). Sin ellos ni CA, el tenant es vulnerable a ataques de password spray.',
+    affectedArea: 'Identidad',
+    microsoftFix: 'Activar Security Defaults o configurar CA con Entra ID P1',
+    beservicesFix: 'besafe_essentials'
   }
 ];
 

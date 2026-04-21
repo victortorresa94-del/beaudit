@@ -31,6 +31,8 @@ app.get('/api/health', (req, res) => {
 app.get('/api/summary', summaryLimiter, async (req, res) => {
   try {
     const summary = await getSummary();
+    // Pass securitySettings into risk check data
+    summary.securitySettings = summary.securitySettings || {};
     const { score, risks, criticalCount, highCount, coveredCount } = calculateRisks(summary);
     const recommendation = getRecommendation(risks, summary.users.length);
 
@@ -208,7 +210,10 @@ app.get('/api/summary', summaryLimiter, async (req, res) => {
         name:        recommendation.primary?.name  || '',
         reasoning:   recommendation.reasoning      || '',
         alternative: recommendation.alternative?.key || null
-      }
+      },
+
+      securitySettings: summary.securitySettings,
+      secureScoreControls: summary.secureScoreControls
     });
 
   } catch (e) {

@@ -50,6 +50,75 @@
       <div class="feature-item"><div class="fi-icon fi-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div><strong>Plan Besafe personalizado</strong><span>Recomendacion con precio real</span></div></div>
     </div>
   </section>
+
+  <!-- ===================== COMO CONECTARSE ===================== -->
+  <section class="connect-section">
+    <div class="connect-inner">
+      <div class="connect-header">
+        <div class="connect-label">GUIA DE CONFIGURACION</div>
+        <h2 class="connect-title">Conecta el tenant de tu cliente en 5 pasos</h2>
+        <p class="connect-sub">BeAudit usa una App Registration de Azure con permisos de <strong>solo lectura</strong>. Sin acceso a correo, archivos ni datos personales. Conforme RGPD. El cliente ejecuta un script de PowerShell que prepara el acceso en menos de 2 minutos.</p>
+      </div>
+
+      <div class="connect-steps">
+        <div class="connect-step">
+          <div class="cs-num">1</div>
+          <div class="cs-body">
+            <div class="cs-title">El cliente descarga el script de PowerShell</div>
+            <div class="cs-desc">Proporciona al cliente el fichero <code>BeAudit-Setup.ps1</code>. Lo puede ejecutar desde cualquier PC con Windows y PowerShell 5.1+. Solo necesita una cuenta con rol <strong>Global Administrator</strong> en el tenant.</div>
+          </div>
+        </div>
+        <div class="connect-step">
+          <div class="cs-num">2</div>
+          <div class="cs-body">
+            <div class="cs-title">Ejecuta el script (2 minutos)</div>
+            <div class="cs-desc">El script crea automaticamente una App Registration llamada <em>BeAudit Diagnostico</em>, asigna los permisos de lectura necesarios y genera el secreto de acceso. <strong>Ningun permiso de escritura</strong> — todo es de solo lectura.</div>
+            <div class="cs-code">PowerShell.exe -ExecutionPolicy Bypass -File BeAudit-Setup.ps1</div>
+          </div>
+        </div>
+        <div class="connect-step">
+          <div class="cs-num">3</div>
+          <div class="cs-body">
+            <div class="cs-title">El script muestra 3 valores</div>
+            <div class="cs-desc">Al terminar, el script imprime el <strong>Tenant ID</strong>, el <strong>Client ID</strong> (Application ID) y el <strong>Client Secret</strong>. El cliente los copia y te los envía por email o mensaje seguro.</div>
+            <div class="cs-perms">
+              <div class="cs-perm-title">Permisos que se solicitan (solo lectura):</div>
+              <div class="cs-perm-grid">
+                <span>Organization.Read.All</span><span>User.Read.All</span>
+                <span>Directory.Read.All</span><span>Policy.Read.All</span>
+                <span>UserAuthenticationMethod.Read.All</span><span>SecurityEvents.Read.All</span>
+                <span>DeviceManagementManagedDevices.Read.All</span><span>Sites.Read.All</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="connect-step">
+          <div class="cs-num">4</div>
+          <div class="cs-body">
+            <div class="cs-title">BeServices configura el .env del servidor</div>
+            <div class="cs-desc">Con los 3 valores recibidos, actualizas las variables <code>TENANT_ID</code>, <code>CLIENT_ID</code> y <code>CLIENT_SECRET</code> en el fichero <code>.env</code> del servidor BeAudit. Las credenciales <strong>nunca viajan al navegador</strong> — solo el servidor las usa.</div>
+          </div>
+        </div>
+        <div class="connect-step">
+          <div class="cs-num">5</div>
+          <div class="cs-body">
+            <div class="cs-title">Lanzas el diagnostico en la reunion</div>
+            <div class="cs-desc">Abre BeAudit en el navegador con el cliente delante y pulsa <em>Iniciar diagnostico</em>. En 20-30 segundos tienes el dashboard completo con datos reales del tenant.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="connect-alt">
+        <div class="connect-alt-inner">
+          <div>
+            <div class="connect-alt-title">Alternativa manual</div>
+            <div class="connect-alt-desc">El cliente puede crear la App Registration manualmente desde <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener">portal.azure.com &rarr; Microsoft Entra ID &rarr; Registros de aplicaciones</a></div>
+          </div>
+          <a href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app" target="_blank" rel="noopener" class="btn-outline" style="white-space:nowrap;flex-shrink:0">Documentacion Microsoft &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
   <footer class="land-footer"><div class="lf-inner"><span>&copy; 2026 BeAudit &middot; <strong>BeServices</strong> &middot; Barcelona</span><span>Analisis de solo lectura &middot; Conforme RGPD</span></div></footer>
 </div>
 
@@ -203,6 +272,17 @@
             <div class="panel-header"><span class="panel-title" style="color:var(--ok)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Lo que SI esta protegido</span><span class="panel-meta" id="positives-meta"></span></div>
             <div style="padding:16px 20px"><div class="positives-grid" id="positives-grid"></div></div>
           </div>
+
+          <!-- Zero Trust Assessment -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Zero Trust Assessment</span>
+              <span class="panel-meta">Framework NIST / Microsoft Zero Trust</span>
+            </div>
+            <div style="padding:16px 20px">
+              <div class="zt-pillars" id="zt-pillars"></div>
+            </div>
+          </div>
         </div>
 
         <!-- ═══ PAGE: USUARIOS ═══ -->
@@ -265,6 +345,18 @@
           <div class="panel">
             <div class="panel-header"><span class="panel-title">Licencias Microsoft 365</span><span class="panel-meta" id="lic-meta"></span></div>
             <div class="lic-list" id="lic-list"></div>
+          </div>
+
+          <!-- Secure Score Controls (actionable) -->
+          <div class="panel" id="ss-controls-panel" style="display:none">
+            <div class="panel-header">
+              <span class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Secure Score — Acciones de mejora
+              </span>
+              <span class="panel-meta" id="ss-controls-meta">Top acciones segun Microsoft</span>
+            </div>
+            <div id="ss-controls-list"></div>
           </div>
         </div>
 

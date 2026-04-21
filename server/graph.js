@@ -204,8 +204,87 @@ async function getBackupStatus() {
   }
 }
 
+// ── NEW: Security defaults, guest policy, admin roles ─────────────────────────
+async function getSecuritySettings() {
+  const result = {
+    securityDefaultsEnabled: null,
+    guestInvitePolicy: null,    // 'none'|'adminsAndGuestInviters'|'everyone'
+    guestRoleRestricted: true,
+    globalAdminCount: 0,
+    adminRoles: [],
+    legacyAuthBlocked: null
+  };
+
+  // Security defaults (covers legacy auth + MFA baseline)
+  try {
+    const d = await graphGet('/policies/identitySecurityDefaultsEnforcementPolicy');
+    result.securityDefaultsEnabled = d.isEnabled;
+  } catch (e) { /* permission or not available */ }
+
+  // Guest + invite policy
+  try {
+    const d = await graphGet('/policies/authorizationPolicy');
+    const p = Array.isArray(d.value) ? d.value[0] : d;
+    result.guestInvitePolicy = p.allowInvitesFrom || null;
+    // GuestUser restricted role ID = 10dae51f-... (safest). Member-level = 2af84b1e-...
+    const GUEST_RESTRICTED = '10dae51f-b6af-4016-8d66-8c2a99b929b3';
+    result.guestRoleRestricted = p.guestUserRoleId === GUEST_RESTRICTED;
+  } catch (e) { /* Policy.Read.All needed */ }
+
+  // Privileged admin roles + member counts
+  try {
+    const d = await graphGet('/directoryRoles?$expand=members($select=id,displayName,userPrincipalName)');
+    const PRIVILEGED = ['Global Administrator','Privileged Role Administrator','Security Administrator','Exchange Administrator','SharePoint Administrator'];
+    const privileged = (d.value || []).filter(r => PRIVILEGED.includes(r.displayName));
+    result.adminRoles = privileged.map(r => ({
+      name: r.displayName,
+      memberCount: r.members?.length || 0,
+      members: (r.members || []).map(m => ({ name: m.displayName, email: m.userPrincipalName }))
+    }));
+    result.globalAdminCount = privileged.find(r => r.displayName === 'Global Administrator')?.members?.length || 0;
+  } catch (e) { /* Directory.Read.All needed */ }
+
+  return result;
+}
+
+// ── NEW: Secure Score control profiles (actionable improvement items) ─────────
+async function getSecureScoreControls() {
+  try {
+    const [scoresRes, profilesRes] = await Promise.all([
+      graphGet('/security/secureScores?$top=1'),
+      graphGet('/security/secureScoreControlProfiles?$top=100')
+    ]);
+    const score = scoresRes.value?.[0];
+    if (!score) return { available: false, controls: [] };
+
+    const profileMap = {};
+    (profilesRes.value || []).forEach(p => { profileMap[p.id] = p; });
+
+    const controls = (score.controlScores || []).map(c => {
+      const prof = profileMap[c.controlName] || {};
+      return {
+        id: c.controlName,
+        score: Math.round(c.score || 0),
+        maxScore: Math.round(prof.maxScore || c.total || 0),
+        title: prof.title || c.controlName,
+        category: prof.controlCategory || 'General',
+        description: (prof.description || '').substring(0, 200),
+        remediation: (prof.remediation || '').substring(0, 300),
+        implementationCost: prof.implementationCost || 'low',
+        userImpact: prof.userImpact || 'low',
+        threats: prof.threats || [],
+        actionUrl: prof.actionUrl || ''
+      };
+    }).sort((a, b) => (b.maxScore - b.score) - (a.maxScore - a.score)); // sort by improvement potential
+
+    return { available: true, controls };
+  } catch (e) {
+    return { available: false, controls: [], reason: e.message };
+  }
+}
+
 async function getSummary() {
-  const [tenant, licenses, users, devices, conditionalAccess, secureScore, externalSharing, backup] =
+  const [tenant, licenses, users, devices, conditionalAccess, secureScore, externalSharing, backup, securitySettings, secureScoreControls] =
     await Promise.all([
       getTenantInfo(),
       getSubscribedSkus(),
@@ -214,7 +293,9 @@ async function getSummary() {
       getConditionalAccessPolicies(),
       getSecureScore(),
       getExternalSharing(),
-      getBackupStatus()
+      getBackupStatus(),
+      getSecuritySettings(),
+      getSecureScoreControls()
     ]);
 
   return {
@@ -226,7 +307,9 @@ async function getSummary() {
     conditionalAccess,
     secureScore,
     externalSharing,
-    backup
+    backup,
+    securitySettings,
+    secureScoreControls
   };
 }
 
@@ -239,5 +322,7 @@ module.exports = {
   getSecureScore,
   getExternalSharing,
   getBackupStatus,
+  getSecuritySettings,
+  getSecureScoreControls,
   getSummary
 };
