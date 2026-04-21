@@ -370,37 +370,50 @@
           </div>
 
           <div class="mitre-layout">
-            <!-- Left: controls -->
-            <div class="mitre-controls">
-              <div class="mitre-ctrl-section">
-                <div class="mitre-ctrl-title">Simular plan Besafe</div>
+
+            <!-- ── BARRA SUPERIOR: plan + stats ── -->
+            <div class="mitre-topbar">
+              <div class="mitre-topbar-left">
+                <span class="mitre-topbar-label">Simular plan Besafe</span>
                 <div class="mitre-plan-btns">
-                  <button class="mitre-plan-btn" onclick="simPlan('current')">Actual</button>
-                  <button class="mitre-plan-btn" onclick="simPlan('essentials')">Essentials</button>
-                  <button class="mitre-plan-btn" onclick="simPlan('advanced')">Advanced</button>
-                  <button class="mitre-plan-btn" onclick="simPlan('plus')">Plus</button>
-                  <button class="mitre-plan-btn" onclick="simPlan('total')">Total</button>
+                  <button class="mitre-plan-btn active" onclick="simPlan('current',event)">Actual</button>
+                  <button class="mitre-plan-btn" onclick="simPlan('essentials',event)">Essentials</button>
+                  <button class="mitre-plan-btn" onclick="simPlan('advanced',event)">Advanced</button>
+                  <button class="mitre-plan-btn" onclick="simPlan('plus',event)">Plus</button>
+                  <button class="mitre-plan-btn" onclick="simPlan('total',event)">Total</button>
                 </div>
               </div>
-
-              <div class="mitre-ctrl-section">
-                <div class="mitre-ctrl-title">Cobertura simulada</div>
-                <div class="mitre-coverage-stats" id="mitre-stats">
-                  <div class="mc-stat ok"><span id="ms-covered">—</span><small>Cubiertas</small></div>
-                  <div class="mc-stat bad"><span id="ms-exposed">—</span><small>Expuestas</small></div>
-                  <div class="mc-stat neu"><span id="ms-pct">—</span><small>Cobertura</small></div>
-                </div>
-              </div>
-
-              <div class="mitre-ctrl-section">
-                <div class="mitre-ctrl-title">Productos Microsoft activos</div>
-                <div class="mitre-products" id="mitre-products"></div>
+              <div class="mitre-coverage-stats" id="mitre-stats">
+                <div class="mc-stat ok"><span id="ms-covered">—</span><small>Cubiertas</small></div>
+                <div class="mc-stat bad"><span id="ms-exposed">—</span><small>Expuestas</small></div>
+                <div class="mc-stat neu"><span id="ms-pct">—</span><small>Cobertura</small></div>
               </div>
             </div>
 
-            <!-- Right: matrix -->
+            <!-- ── BARRA DE PRODUCTOS (chips horizontales) ── -->
+            <div class="mitre-products-bar">
+              <span class="mitre-topbar-label" style="flex-shrink:0;align-self:flex-start;margin-top:6px">Productos activos</span>
+              <div class="mitre-products" id="mitre-products"></div>
+            </div>
+
+            <!-- ── LEYENDA ── -->
+            <div class="mitre-legend">
+              <span class="mitre-leg-item covered"><span class="mitre-leg-dot"></span>Cubierto</span>
+              <span class="mitre-leg-item exposed"><span class="mitre-leg-dot"></span>Expuesto</span>
+              <span style="font-size:.72rem;color:var(--gray-400);margin-left:8px">Haz click en cualquier tecnica para ver el detalle</span>
+            </div>
+
+            <!-- ── MATRIX (ancho completo) ── -->
             <div class="mitre-matrix-wrap">
               <div class="mitre-matrix" id="mitre-matrix"></div>
+            </div>
+          </div>
+
+          <!-- ── TECHNIQUE DETAIL DRAWER ── -->
+          <div id="mitre-tech-detail" class="mitre-tech-detail">
+            <div class="mtd-backdrop" onclick="closeTechDetail()"></div>
+            <div class="mtd-panel">
+              <div id="mtd-content"></div>
             </div>
           </div>
         </div>

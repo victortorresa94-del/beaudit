@@ -484,19 +484,17 @@ function renderMitreProducts(){
   var c=document.getElementById('mitre-products'); if(!c) return;
   var groups={};
   SECURITY_PRODUCTS.forEach(function(p){ if(!groups[p.group]) groups[p.group]=[]; groups[p.group].push(p); });
+  // Render as horizontal chips with group separators
   c.innerHTML=Object.keys(groups).map(function(g){
-    return '<div class="mp-group">'+
-      '<div class="mp-group-label">'+g+'</div>'+
-      groups[g].map(function(p){
-        var on=!!_enabledProducts[p.id];
-        return '<label class="mp-item">'+
-          '<input type="checkbox" '+(on?'checked':'')+' onchange="toggleProduct(\''+p.id+'\',this.checked)">'+
-          '<span class="mp-name">'+escHtml(p.name)+'</span>'+
-          '<span class="mp-desc">'+escHtml(p.desc)+'</span>'+
-        '</label>';
-      }).join('')+
-    '</div>';
-  }).join('');
+    var chips=groups[g].map(function(p){
+      var on=!!_enabledProducts[p.id];
+      return '<label class="mp-chip'+(on?' active':'')+'" title="'+escHtml(p.desc)+'">'+
+        '<input type="checkbox" '+(on?'checked':'')+' onchange="toggleProduct(\''+p.id+'\',this.checked)">'+
+        escHtml(p.name)+
+      '</label>';
+    }).join('');
+    return '<span class="mp-group-sep">'+escHtml(g)+'</span>'+chips;
+  }).join('');;
 }
 
 function toggleProduct(id,val){
@@ -504,9 +502,9 @@ function toggleProduct(id,val){
   updateMitreMatrix();
 }
 
-function simPlan(plan){
+function simPlan(plan,ev){
   document.querySelectorAll('.mitre-plan-btn').forEach(function(b){ b.classList.remove('active'); });
-  event.target.classList.add('active');
+  if(ev&&ev.target) ev.target.classList.add('active');
   if(plan==='current'){ initMitreProducts(_auditData); }
   else{
     SECURITY_PRODUCTS.forEach(function(p){ _enabledProducts[p.id]=false; });
@@ -533,29 +531,95 @@ function updateMitreMatrix(){
   var c=document.getElementById('mitre-matrix'); if(!c) return;
   c.innerHTML=MITRE_TACTICS.map(function(tactic){
     var techs=MITRE_TECHNIQUES.filter(function(t){return t.tactic===tactic.id;});
+    var tacticCovered=techs.filter(function(t){return t.covers.some(function(pid){return !!_enabledProducts[pid];});}).length;
     return '<div class="mitre-col">'+
       '<div class="mitre-tactic-hdr">'+
         '<span class="mitre-tactic-icon">'+tactic.icon+'</span>'+
         '<span class="mitre-tactic-name">'+tactic.name+'</span>'+
-        '<span class="mitre-tactic-count">'+techs.length+'</span>'+
+        '<span class="mitre-tactic-count">'+tacticCovered+'/'+techs.length+'</span>'+
       '</div>'+
       '<div class="mitre-techs">'+
         techs.map(function(t){
           var isCovered=t.covers.some(function(pid){return !!_enabledProducts[pid];});
           var coveringProds=t.covers.filter(function(pid){return !!_enabledProducts[pid];});
-          var prodNames=t.covers.map(function(pid){ var p=SECURITY_PRODUCTS.find(function(sp){return sp.id===pid;}); return p?p.name:pid; });
-          return '<div class="mitre-tech '+(isCovered?'covered':'exposed')+'" title="'+escHtml(t.desc)+'\n\nProductos que lo cubren:\n'+prodNames.join(', ')+'">'+
+          var shortNames=coveringProds.slice(0,2).map(function(pid){ var p=SECURITY_PRODUCTS.find(function(sp){return sp.id===pid;}); return p?p.name.replace('Microsoft ','').replace('Defender for ','Def. ').replace(' for Office','').replace(' Endpoint','').replace(' Identity',''):pid; });
+          return '<div class="mitre-tech '+(isCovered?'covered':'exposed')+'" onclick="openTechDetail(\''+t.id+'\')">'+
             '<div class="mt-id">'+t.id+'</div>'+
             '<div class="mt-name">'+escHtml(t.name)+'</div>'+
-            '<div class="mt-status">'+(isCovered?
-              '<span class="mt-covered-by">'+coveringProds.map(function(pid){ var p=SECURITY_PRODUCTS.find(function(sp){return sp.id===pid;}); return p?p.name.replace('Microsoft ','').replace('Defender for ','Def. ').replace('Endpoint','EP'):pid; }).join(', ')+'</span>':
-              '<span class="mt-exposed-lbl">Expuesto</span>')+
+            '<div class="mt-indicator">'+(isCovered?
+              '✓ '+shortNames.join(', ')+(coveringProds.length>2?' +':''):
+              '⚠ Expuesto')+
             '</div>'+
           '</div>';
         }).join('')+
       '</div>'+
     '</div>';
   }).join('');
+}
+
+// ── TECHNIQUE DETAIL DRAWER ────────────────────────────────────
+function openTechDetail(techId){
+  var t=MITRE_TECHNIQUES.find(function(x){return x.id===techId;}); if(!t) return;
+  var tactic=MITRE_TACTICS.find(function(x){return x.id===t.tactic;})||{name:t.tactic,icon:'🔒'};
+  var isCovered=t.covers.some(function(pid){return !!_enabledProducts[pid];});
+  var cls=isCovered?'covered':'exposed';
+
+  // Build product rows
+  var productRows=SECURITY_PRODUCTS.filter(function(p){return t.covers.includes(p.id);}).map(function(p){
+    var active=!!_enabledProducts[p.id];
+    var rowCls=active?'covers':(t.covers.includes(p.id)?'missing-active':'missing');
+    var statusTxt=active?'Activo':'No activo';
+    return '<div class="mtd-product-row '+rowCls+'">'+
+      '<span class="mtd-product-icon">'+(active?'✓':'○')+'</span>'+
+      '<span class="mtd-product-name">'+escHtml(p.name)+'</span>'+
+      '<span class="mtd-product-status">'+statusTxt+'</span>'+
+    '</div>';
+  }).join('');
+
+  // Products NOT in covers that would complement (empty if all covered)
+  var allCoversActive=t.covers.every(function(pid){return !!_enabledProducts[pid];});
+  var mitreUrl='https://attack.mitre.org/techniques/'+t.id.replace('.','/')+'/';
+
+  var html='<div class="mtd-header '+cls+'">'+
+    '<div style="flex:1;min-width:0">'+
+      '<div class="mtd-id">'+t.id+'</div>'+
+      '<div class="mtd-title">'+escHtml(t.name)+'</div>'+
+      '<div class="mtd-badges">'+
+        '<span class="mtd-badge '+cls+'">'+(isCovered?'✓ Cubierto':'⚠ Expuesto')+'</span>'+
+        '<span class="mtd-badge tactic">'+tactic.icon+' '+tactic.name+'</span>'+
+      '</div>'+
+    '</div>'+
+    '<button class="mtd-close" onclick="closeTechDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
+  '</div>'+
+  '<div class="mtd-body">'+
+    '<div class="mtd-section">'+
+      '<div class="mtd-section-title">Descripcion del ataque</div>'+
+      '<div class="mtd-desc">'+escHtml(t.desc)+'</div>'+
+    '</div>'+
+    '<div class="mtd-section">'+
+      '<div class="mtd-section-title">Productos que cubren esta tecnica</div>'+
+      (productRows||'<div style="font-size:.825rem;color:var(--gray-400)">Ningun producto de los disponibles cubre esta tecnica.</div>')+
+    '</div>'+
+    (isCovered?'':'<div class="mtd-section" style="background:rgba(220,38,38,.02)"><div class="mtd-section-title" style="color:var(--critical)">Para cubrir este riesgo necesitas</div>'+
+      t.covers.map(function(pid){var p=SECURITY_PRODUCTS.find(function(x){return x.id===pid;});if(!p)return '';
+        var plan=p.besafe&&p.besafe[0]?p.besafe[0]:'—';
+        return '<div class="mtd-product-row missing-active"><span class="mtd-product-icon">📦</span><span class="mtd-product-name">'+escHtml(p.name)+'</span><span class="mtd-product-status">Besafe '+plan.charAt(0).toUpperCase()+plan.slice(1)+'</span></div>';
+      }).join('')+
+    '</div>')+
+  '</div>'+
+  '<div class="mtd-footer">'+
+    '<a href="'+mitreUrl+'" target="_blank" rel="noopener" class="btn-primary-sm" style="text-decoration:none;display:inline-flex">Ver en MITRE ATT&CK &rarr;</a>'+
+    '<button class="btn-outline" onclick="closeTechDetail()">Cerrar</button>'+
+  '</div>';
+
+  var content=document.getElementById('mtd-content'); if(content) content.innerHTML=html;
+  var drawer=document.getElementById('mitre-tech-detail'); if(drawer) drawer.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeTechDetail(){
+  var d=document.getElementById('mitre-tech-detail'); if(d) d.classList.remove('open');
+  document.body.style.overflow='';
 }
 
 // ── DRAWER ─────────────────────────────────────────────────────
@@ -827,4 +891,5 @@ document.addEventListener('DOMContentLoaded',function(){
   window.toggleSidebar=toggleSidebar; window.openRiskDetail=openRiskDetail; window.closeDrawer=closeDrawer;
   window.openContactModal=openContactModal; window.closeModal=closeModal;
   window.filterUsers=filterUsers; window.toggleProduct=toggleProduct; window.simPlan=simPlan;
+  window.openTechDetail=openTechDetail; window.closeTechDetail=closeTechDetail;
 });
