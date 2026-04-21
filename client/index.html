@@ -294,6 +294,22 @@
 
     </div><!-- /kpi-row -->
 
+    <!-- ── SECURITY LAYERS ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Capas de seguridad
+        </span>
+        <span class="panel-meta">Estado de cada capa de defensa</span>
+      </div>
+      <div style="padding:16px 20px">
+        <div class="layers-grid" id="layers-grid"></div>
+      </div>
+    </div>
+
     <!-- ── MAIN GRID ── -->
     <div class="dash-grid">
 
@@ -345,6 +361,38 @@
       </div><!-- /col-right -->
 
     </div><!-- /dash-grid -->
+
+    <!-- ── LO QUE SI TENEMOS ── -->
+    <div class="panel" id="positives-panel">
+      <div class="panel-header">
+        <span class="panel-title" style="color:var(--ok)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          Lo que SI esta protegido
+        </span>
+        <span class="panel-meta" id="positives-meta"></span>
+      </div>
+      <div style="padding:16px 20px">
+        <div class="positives-grid" id="positives-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── LICENCIAS ACTIVAS ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <rect x="2" y="5" width="20" height="14" rx="2"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+          </svg>
+          Licencias Microsoft 365 activas
+        </span>
+        <span class="panel-meta" id="lic-meta"></span>
+      </div>
+      <div class="lic-list" id="lic-list"></div>
+    </div>
 
     <!-- ── USERS ── -->
     <div class="users-block panel">
@@ -409,6 +457,16 @@
   </div>
 </div>
 
+
+<!-- ================================================================
+     DETAIL DRAWER
+================================================================ -->
+<div id="detail-drawer">
+  <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+  <div class="drawer-panel">
+    <div id="drawer-content"></div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
