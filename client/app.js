@@ -15,6 +15,9 @@ var _allUsers       = [];   // for filter/search
 var VIEWS = ['view-landing','view-loading','view-error','view-dashboard'];
 function showView(id) {
   VIEWS.forEach(function(v){ var el=document.getElementById(v); if(el) el.style.display=(v===id)?'':'none'; });
+  // Show Bee trigger only inside dashboard
+  var trig = document.getElementById('bee-trigger');
+  if (trig) trig.style.display = (id === 'view-dashboard') ? 'flex' : 'none';
   window.scrollTo(0,0);
 }
 function goToLanding(){ showView('view-landing'); }
@@ -887,6 +890,9 @@ var _beeMessages = [];
 var _beeOpen = false;
 var _beeMode = 'home'; // 'home' | 'chat'
 
+// SVG bee icon — same as trigger, used in chat avatars
+var BEE_AVATAR_HTML = '<div class="bee-msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" width="16" height="16"><ellipse cx="12" cy="10" rx="6" ry="7"/><path d="M6 10c-2 0-3 1.5-3 3s1 3 3 3"/><path d="M18 10c2 0 3 1.5 3 3s-1 3-3 3"/><path d="M9 4L7 1M15 4l2-3"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg></div>';
+
 function buildTenantContext() {
   if (!_auditData) return {};
   var t = _auditData.tenant || {};
@@ -903,8 +909,8 @@ function buildTenantContext() {
     scoreLabel:      score < 40 ? 'Riesgo Critico' : score < 65 ? 'Riesgo Alto' : 'Riesgo Moderado',
     criticalCount:   r.criticalCount || 0,
     highCount:       r.highCount || 0,
-    usersWithoutMfa: (u.users ? u.users.filter(function(x){ return !x.hasMFA; }).length : 0),
-    totalUsers:      (u.users ? u.users.length : 0),
+    usersWithoutMfa: u.withoutMfa || 0,
+    totalUsers:      u.total || 0,
     msPlan:          (lics[0] && lics[0].name) || 'no detectado',
     topRisks:        topRisks,
     recommendedProduct: (rec.primary && rec.primary.name) || 'Besafe Advanced'
@@ -1035,8 +1041,10 @@ function beeShowHistory() {
 }
 
 function sendQuick(text) {
-  beeSetTab('home');
   _beeMode = 'chat';
+  beeSetTab('home'); // switch to home tab to show the chat
+  var c = document.getElementById('bee-body');
+  if (c) c.innerHTML = ''; // clear to show chat is transitioning
   var input = document.getElementById('bee-input');
   if (input) input.value = text;
   sendToBee();
@@ -1049,20 +1057,22 @@ async function sendToBee() {
   if (!text || _beeSending) return;
   if (input) input.value = '';
   _beeMode = 'chat';
-  beeSetTab('home');
 
   _beeMessages.push({ role: 'user', content: text });
   renderBeeChat();
 
-  // typing indicator
+  // typing indicator — append after renderBeeChat creates .bee-chat
   var c = document.getElementById('bee-body');
   if (c) {
-    var typing = document.createElement('div');
-    typing.className = 'bee-msg bee-msg-typing';
-    typing.id = 'bee-typing';
-    typing.innerHTML = '<div class="bee-msg-avatar">🐝</div><div class="bee-msg-bubble"><div class="bee-typing-dots"><span></span><span></span><span></span></div></div>';
     var chat = c.querySelector('.bee-chat');
-    if (chat) { chat.appendChild(typing); c.scrollTop = c.scrollHeight; }
+    if (chat) {
+      var typing = document.createElement('div');
+      typing.className = 'bee-msg bee-msg-typing';
+      typing.id = 'bee-typing';
+      typing.innerHTML = BEE_AVATAR_HTML + '<div class="bee-msg-bubble"><div class="bee-typing-dots"><span></span><span></span><span></span></div></div>';
+      chat.appendChild(typing);
+      c.scrollTop = c.scrollHeight;
+    }
   }
 
   _beeSending = true;
@@ -1090,7 +1100,7 @@ function renderBeeChat() {
   c.innerHTML = '<div class="bee-chat">'
     + _beeMessages.map(function(m){
         return '<div class="bee-msg bee-msg-'+m.role+'">'
-          + (m.role==='assistant' ? '<div class="bee-msg-avatar">🐝</div>' : '')
+          + (m.role==='assistant' ? BEE_AVATAR_HTML : '')
           + '<div class="bee-msg-bubble">' + formatBeeMsg(m.content) + '</div>'
           + '</div>';
       }).join('')
