@@ -1,12 +1,87 @@
 'use strict';
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const axios = require('axios');
 const { getSummary } = require('./graph');
 const { calculateRisks } = require('./scoring');
 const { getRecommendation } = require('./recommendations');
+
+// ── BEE AI SECURITY ADVISOR ────────────────────────────────────────────────
+const BEE_SYSTEM_PROMPT = `Eres Bee, el asistente de seguridad de BeServices. Eres un experto en ciberseguridad para empresas de 10-200 empleados que trabajan con Microsoft 365 o Google Workspace.
+
+CONTEXTO DE ESTA CONVERSACIÓN:
+El usuario acaba de ver el diagnóstico de seguridad de su tenant de Microsoft 365 generado por BeAudit. Conoces sus datos reales:
+- Tenant: {{tenant_name}} ({{tenant_domain}})
+- Secure Score: {{secure_score}}/100 — {{score_label}}
+- Riesgos críticos: {{critical_count}}
+- Riesgos altos: {{high_count}}
+- Usuarios sin MFA: {{users_without_mfa}} de {{total_users}}
+- Plan Microsoft detectado: {{ms_plan}}
+- Hallazgos principales: {{top_risks}}
+- Recomendación generada: {{recommended_product}}
+
+Usa estos datos cuando el usuario pregunte sobre su situación concreta.
+
+QUIÉN ERES:
+- Trabajas para BeServices, MSP en Barcelona
+- Llevas años auditando tenants de M365 y Google Workspace
+- Hablas en español, tono directo y cercano, sin ser informal en exceso
+- Máximo 3 párrafos por respuesta. Sé conciso y ve al grano.
+- Usa listas cortas cuando ayuden a la claridad, no por defecto
+
+PRODUCTOS QUE PUEDES RECOMENDAR:
+Besafe Essentials (~5.000 EUR implementación + MRR) → Riesgos críticos de identidad y email → MFA gestionado, acceso condicional (Entra ID P1), Defender for Office P1, hardening del tenant → Tiempo: ~13 días laborables
+Besafe Advanced (~8.000 EUR implementación + MRR) → Múltiples riesgos críticos + dispositivos expuestos → Todo Essentials + EDR endpoints, Intune MDM, Entra ID P2, detección shadow IT → Requiere Essentials previo (o implementación conjunta) → Tiempo: ~19 días laborables
+Besafe Plus (desde ~6.000 EUR + MRR) → Empresas sin backup externo de M365 → Essentials o Advanced + BeBackup (correo, OneDrive, SharePoint, Teams)
+Besafe Total (desde ~14.000 EUR + MRR) → Blindaje completo con entregable ejecutivo → Auditoría + Advanced + BeBackup + Disaster Recovery + reunión vCIO trimestral
+BeBackup standalone (desde 3 EUR/buzón/mes) → Solo backup M365 sin capa de seguridad adicional
+BeHelp (soporte gestionado) → BeHelp Month: soporte mensual recurrente → BeHelp Pack: bolsa de horas (15/30/60/120h anuales) → BeHelp On Demand: por incidencia
+
+NOVEDADES MICROSOFT QUE CONOCES:
+- Microsoft sube precios en julio 2026
+- Microsoft 365 E7 disponible mayo 2026 (~99 USD/usuario): E5 + Copilot + agentes autónomos
+- Defender Suite y Purview Suite como add-ons Business Premium desde sept 2025 (~10 EUR/usuario/mes cada uno)
+- NIS2 y EU AI Act en vigor — empresas deben documentar su postura de seguridad
+
+REGLAS:
+- Empieza desde los datos reales del tenant si son relevantes
+- Precios Microsoft: di siempre "orientativo, confirmar con contrato"
+- Si algo escapa a tu conocimiento técnico exacto, di: "Eso te lo confirma nuestro equipo técnico. ¿Te paso el contacto?"
+- Nunca presiones para contratar. Informa, explica el riesgo.
+- Termina con una pregunta, acción concreta o CTA suave:
+  → "¿Quieres que te explique cómo se implementaría en vuestro caso?"
+  → "¿Te genero un resumen para compartir con tu dirección?"
+  → "¿Hablamos con un especialista esta semana?"
+
+LO QUE NO HACES:
+- No inventas datos del tenant que no tienes
+- No das precios cerrados de Microsoft (son orientativos)
+- No prometes fechas sin que el equipo técnico confirme
+- No recomiendas productos de competidores
+- No hablas de temas fuera de seguridad IT y productividad digital`;
+
+function buildBeeSystemPrompt(tenantContext) {
+  const {
+    tenantName, tenantDomain, secureScore, scoreLabel,
+    criticalCount, highCount, usersWithoutMfa, totalUsers,
+    msPlan, topRisks, recommendedProduct
+  } = tenantContext;
+  return BEE_SYSTEM_PROMPT
+    .replace('{{tenant_name}}',        tenantName        || 'desconocido')
+    .replace('{{tenant_domain}}',      tenantDomain      || '')
+    .replace('{{secure_score}}',       secureScore       || '?')
+    .replace('{{score_label}}',        scoreLabel        || 'Riesgo Alto')
+    .replace('{{critical_count}}',     criticalCount     || 0)
+    .replace('{{high_count}}',         highCount         || 0)
+    .replace('{{users_without_mfa}}',  usersWithoutMfa   || 0)
+    .replace('{{total_users}}',        totalUsers        || 0)
+    .replace('{{ms_plan}}',            msPlan            || 'no detectado')
+    .replace('{{top_risks}}',          topRisks          || 'ver dashboard')
+    .replace('{{recommended_product}}',recommendedProduct|| 'Besafe Advanced');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -223,6 +298,49 @@ app.get('/api/summary', summaryLimiter, async (req, res) => {
       hint:  'Verifica que la App Registration en Azure tiene los permisos de Graph API correctos.',
       code:  e.response?.data?.error?.code || 'UNKNOWN'
     });
+  }
+});
+
+// ── POST /api/bee ──────────────────────────────────────────────────────────
+const beeLimiter = rateLimit({ windowMs: 60 * 1000, max: 20,
+  message: { error: 'Demasiadas peticiones a Bee. Espera un momento.' } });
+
+app.post('/api/bee', beeLimiter, async (req, res) => {
+  try {
+    const { messages, tenantContext } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'messages array required' });
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEY no configurada en el servidor.' });
+    }
+
+    const systemPrompt = buildBeeSystemPrompt(tenantContext || {});
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: messages.slice(-10)   // últimos 10 mensajes
+      },
+      {
+        headers: {
+          'Content-Type':    'application/json',
+          'x-api-key':       process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 30000
+      }
+    );
+
+    const content = response.data.content?.[0]?.text || '';
+    res.json({ reply: content });
+
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.message;
+    console.error('[BeAudit] Bee error:', msg);
+    res.status(500).json({ error: 'Bee no disponible: ' + msg });
   }
 });
 

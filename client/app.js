@@ -882,6 +882,232 @@ function setBadge(id,text,cls){ var el=document.getElementById(id); if(el){el.te
 function getInitials(name){ return String(name).split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase()||'?'; }
 function escHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// ── BEE AI SECURITY ADVISOR ────────────────────────────────────
+var _beeMessages = [];
+var _beeOpen = false;
+var _beeMode = 'home'; // 'home' | 'chat'
+
+function buildTenantContext() {
+  if (!_auditData) return {};
+  var t = _auditData.tenant || {};
+  var u = _auditData.users || {};
+  var r = _auditData.risks || {};
+  var rec = _auditData.recommendation || {};
+  var lics = _auditData.licenses || [];
+  var topRisks = ((r.risks || []).slice(0,3).map(function(x){ return x.title; }).join(', ')) || 'ver dashboard';
+  var score = r.score || 0;
+  return {
+    tenantName:      t.displayName || 'desconocido',
+    tenantDomain:    t.primaryDomain || '',
+    secureScore:     (_auditData.security && _auditData.security.secureScore && _auditData.security.secureScore.currentScore) || score,
+    scoreLabel:      score < 40 ? 'Riesgo Critico' : score < 65 ? 'Riesgo Alto' : 'Riesgo Moderado',
+    criticalCount:   r.criticalCount || 0,
+    highCount:       r.highCount || 0,
+    usersWithoutMfa: (u.users ? u.users.filter(function(x){ return !x.hasMFA; }).length : 0),
+    totalUsers:      (u.users ? u.users.length : 0),
+    msPlan:          (lics[0] && lics[0].name) || 'no detectado',
+    topRisks:        topRisks,
+    recommendedProduct: (rec.primary && rec.primary.name) || 'Besafe Advanced'
+  };
+}
+
+function toggleBee() {
+  _beeOpen = !_beeOpen;
+  var w = document.getElementById('bee-widget');
+  if (!w) return;
+  if (_beeOpen) {
+    w.style.display = 'flex';
+    if (_beeMode === 'home') renderBeeHome();
+  } else {
+    w.style.display = 'none';
+  }
+}
+
+function beeSetTab(name) {
+  ['home','insights','recs','history'].forEach(function(t){
+    var el = document.getElementById('bee-tab-'+t);
+    if (el) el.classList.toggle('active', t === name);
+  });
+}
+
+function renderBeeHome() {
+  _beeMode = 'home';
+  beeSetTab('home');
+  var risks = ((_auditData && _auditData.risks && _auditData.risks.risks) || []).slice(0,3);
+  var quickActions = risks.length > 0
+    ? risks.map(function(r){ return { icon: r.level==='critical'?'⚠️':'📋', title: r.title, subtitle: 'Entender este riesgo' }; })
+    : [
+        { icon: '⚠️', title: '¿Cuales son mis mayores riesgos?', subtitle: 'Resumen priorizado' },
+        { icon: '📈', title: '¿Por que ha bajado mi Secure Score?', subtitle: 'Analisis de cambios' },
+        { icon: '🎯', title: '¿Que debo resolver primero?', subtitle: 'Recomendaciones IA' }
+      ];
+  var c = document.getElementById('bee-body');
+  if (!c) return;
+  c.innerHTML = '<div class="bee-home">'
+    + '<div class="bee-greeting">Hi there 👋</div>'
+    + '<div class="bee-greeting-sub">I\'m Bee, your AI security advisor.<br>What would you like to explore today?</div>'
+    + quickActions.map(function(a){
+        return '<div class="bee-quick-action" onclick="sendQuick(\''+escHtml(a.title).replace(/'/g,"&#39;")+'\')">'
+          + '<div class="bee-qa-icon">'+a.icon+'</div>'
+          + '<div class="bee-qa-text"><div class="bee-qa-title">'+escHtml(a.title)+'</div>'
+          + '<div class="bee-qa-sub">'+escHtml(a.subtitle)+'</div></div>'
+          + '<div class="bee-qa-arrow">›</div></div>';
+      }).join('')
+    + '</div>';
+  // auto-welcome if first open with critical risks
+  if (_beeMessages.length === 0) beeSendWelcome();
+}
+
+function beeSendWelcome() {
+  var ctx = buildTenantContext();
+  if (ctx.criticalCount > 0) {
+    _beeMessages.push({
+      role: 'assistant',
+      content: 'Hola 👋 Soy Bee, tu asesor de seguridad de BeServices. He analizado el tenant de '
+        + (ctx.tenantName||'tu empresa') + ' y veo ' + ctx.criticalCount
+        + ' riesgo' + (ctx.criticalCount>1?'s':'') + ' critico' + (ctx.criticalCount>1?'s':'')
+        + ' que merecen atencion. ¿Quieres que te explique que significa alguno de ellos?'
+    });
+    _beeMode = 'chat';
+    beeSetTab('home');
+    renderBeeChat();
+  }
+}
+
+function beeShowHome() { renderBeeHome(); }
+
+function beeShowInsights() {
+  _beeMode = 'chat'; // keep chat accessible
+  beeSetTab('insights');
+  var c = document.getElementById('bee-body');
+  if (!c) return;
+  var risks = ((_auditData && _auditData.risks && _auditData.risks.risks) || []).slice(0,5);
+  var ctx = buildTenantContext();
+  var html = '<div class="bee-static-panel"><div class="bee-static-title">Top hallazgos de tu tenant</div>';
+  if (risks.length === 0) {
+    html += '<div class="bee-history-empty">No hay hallazgos disponibles todavia.</div>';
+  } else {
+    risks.forEach(function(r){
+      var icon = r.level==='critical'?'🔴': r.level==='high'?'🟠': r.level==='medium'?'🟡':'🟢';
+      html += '<div class="bee-insight-item"><div class="bee-insight-icon">'+icon+'</div>'
+        + '<div class="bee-insight-text"><strong>'+escHtml(r.title)+'</strong><br>'
+        + escHtml(r.description||'')+'</div></div>';
+    });
+  }
+  html += '<div style="margin-top:14px;font-size:.78rem;color:var(--gray-400)">Secure Score: <strong style="color:var(--navy)">'+ctx.secureScore+'/100</strong> · '
+    + ctx.criticalCount+' criticos · '+ctx.highCount+' altos</div>';
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+function beeShowRecs() {
+  beeSetTab('recs');
+  var c = document.getElementById('bee-body');
+  if (!c) return;
+  var rec = (_auditData && _auditData.recommendation) || {};
+  var primary = rec.primary || { name:'Besafe Advanced', price:'Desde 8.000 EUR + MRR', desc:'Proteccion completa para multiples riesgos criticos.' };
+  var ctx = buildTenantContext();
+  var mailto = 'mailto:comercial@beservices.es?subject='
+    + encodeURIComponent('BeAudit — Diagnostico: '+ctx.tenantName)
+    + '&body=' + encodeURIComponent('Tenant: '+ctx.tenantName+'\nScore: '+ctx.secureScore+'/100\nRiesgos criticos: '+ctx.criticalCount+'\nRecomendacion: '+primary.name);
+  var html = '<div class="bee-static-panel">'
+    + '<div class="bee-static-title">Recomendacion para tu tenant</div>'
+    + '<div class="bee-rec-card">'
+    + '<div class="bee-rec-title">'+escHtml(primary.name)+'</div>'
+    + '<div class="bee-rec-desc">'+(rec.reasoning?escHtml(rec.reasoning):escHtml(primary.desc||''))+'</div>'
+    + '<a href="'+mailto+'" class="bee-rec-cta">Contactar con BeServices</a>'
+    + '</div>'
+    + (rec.alternative ? '<div style="font-size:.78rem;color:var(--gray-500);margin-top:8px">Alternativa: <strong>'+escHtml(rec.alternative.name)+'</strong></div>' : '')
+    + '<div style="margin-top:12px"><button class="bee-quick-action" onclick="sendQuick(\'¿Por que me recomiendas el plan '+escHtml((primary.name||'')).replace(/'/g,"&#39;")+' para nuestro caso?\')" style="width:100%"><div class="bee-qa-icon">💬</div><div class="bee-qa-text"><div class="bee-qa-title">¿Por que este plan?</div><div class="bee-qa-sub">Preguntarle a Bee</div></div><div class="bee-qa-arrow">›</div></button></div>'
+    + '</div>';
+  c.innerHTML = html;
+}
+
+function beeShowHistory() {
+  beeSetTab('history');
+  var c = document.getElementById('bee-body');
+  if (!c) return;
+  if (_beeMessages.length === 0) {
+    c.innerHTML = '<div class="bee-history-empty">No hay conversacion todavia.<br>Haz una pregunta a Bee para empezar.</div>';
+    return;
+  }
+  renderBeeChat();
+}
+
+function sendQuick(text) {
+  beeSetTab('home');
+  _beeMode = 'chat';
+  var input = document.getElementById('bee-input');
+  if (input) input.value = text;
+  sendToBee();
+}
+
+var _beeSending = false;
+async function sendToBee() {
+  var input = document.getElementById('bee-input');
+  var text = (input ? input.value : '').trim();
+  if (!text || _beeSending) return;
+  if (input) input.value = '';
+  _beeMode = 'chat';
+  beeSetTab('home');
+
+  _beeMessages.push({ role: 'user', content: text });
+  renderBeeChat();
+
+  // typing indicator
+  var c = document.getElementById('bee-body');
+  if (c) {
+    var typing = document.createElement('div');
+    typing.className = 'bee-msg bee-msg-typing';
+    typing.id = 'bee-typing';
+    typing.innerHTML = '<div class="bee-msg-avatar">🐝</div><div class="bee-msg-bubble"><div class="bee-typing-dots"><span></span><span></span><span></span></div></div>';
+    var chat = c.querySelector('.bee-chat');
+    if (chat) { chat.appendChild(typing); c.scrollTop = c.scrollHeight; }
+  }
+
+  _beeSending = true;
+  try {
+    var res = await fetch('/api/bee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: _beeMessages, tenantContext: buildTenantContext() })
+    });
+    var data = await res.json();
+    var reply = data.reply || 'Lo siento, ha habido un error. Intentalo de nuevo.';
+    _beeMessages.push({ role: 'assistant', content: reply });
+  } catch (err) {
+    _beeMessages.push({ role: 'assistant', content: 'Bee no esta disponible ahora mismo. Contacta con el equipo de BeServices.' });
+  } finally {
+    _beeSending = false;
+    var t = document.getElementById('bee-typing'); if (t) t.remove();
+    renderBeeChat();
+  }
+}
+
+function renderBeeChat() {
+  var c = document.getElementById('bee-body');
+  if (!c) return;
+  c.innerHTML = '<div class="bee-chat">'
+    + _beeMessages.map(function(m){
+        return '<div class="bee-msg bee-msg-'+m.role+'">'
+          + (m.role==='assistant' ? '<div class="bee-msg-avatar">🐝</div>' : '')
+          + '<div class="bee-msg-bubble">' + formatBeeMsg(m.content) + '</div>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+  c.scrollTop = c.scrollHeight;
+}
+
+function formatBeeMsg(text) {
+  if (!text) return '';
+  // Convert markdown-ish to html
+  var s = escHtml(text);
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
 // ── INIT ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',function(){
   showView('view-landing');
@@ -892,4 +1118,8 @@ document.addEventListener('DOMContentLoaded',function(){
   window.openContactModal=openContactModal; window.closeModal=closeModal;
   window.filterUsers=filterUsers; window.toggleProduct=toggleProduct; window.simPlan=simPlan;
   window.openTechDetail=openTechDetail; window.closeTechDetail=closeTechDetail;
+  // Bee
+  window.toggleBee=toggleBee; window.sendToBee=sendToBee; window.sendQuick=sendQuick;
+  window.beeShowHome=beeShowHome; window.beeShowInsights=beeShowInsights;
+  window.beeShowRecs=beeShowRecs; window.beeShowHistory=beeShowHistory;
 });
