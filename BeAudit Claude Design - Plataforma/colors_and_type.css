@@ -1,0 +1,220 @@
+/* ============================================================
+   BeServices Design System — "Tech-Clarity" 2026
+   Colors, typography, spacing and elevation tokens.
+   Import this once. Use vars; do not hardcode.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---------- CORE PALETTE ----------
+     The system is built on Pure White + Corporate Navy with two
+     accents: Electric Blue (CTA) and Cyan/Teal (agentic energy). */
+  --bes-white:        #FFFFFF;  /* Dominant background (40-50% of surface) */
+  --bes-bg-soft:      #F9FAFB;  /* Sectional break, input fills */
+  --bes-bg-ice:       #E0F2FE;  /* Light-blue hero beds, callouts */
+  --bes-navy:         #001A41;  /* Headlines, structure, dark sections */
+  --bes-navy-80:      rgba(0, 26, 65, 0.80);
+  --bes-navy-40:      rgba(0, 26, 65, 0.40);
+  --bes-navy-08:      rgba(0, 26, 65, 0.08);
+  --bes-navy-04:      rgba(0, 26, 65, 0.04);
+
+  /* Accents — NEVER use as a background flood. They are *light
+     coming from within*. Use for CTAs, glow, hover, dots, rules. */
+  --bes-blue:         #0075F2;  /* Primary CTA / link */
+  --bes-blue-ink:     #007BFF;  /* Electric blue variant (icons) */
+  --bes-cyan:         #50CABF;  /* Teal — brand accent, checks, dots */
+  --bes-cyan-bright:  #00D4FF;  /* Electric cyan — agentic glow */
+
+  /* Text scale */
+  --bes-text:         #001A41;  /* Primary — navy */
+  --bes-text-muted:   #4B5563;  /* Secondary body */
+  --bes-text-soft:    #9CA3AF;  /* Tertiary / captions / meta */
+  --bes-text-hint:    #D1D5DB;  /* Disabled */
+  --bes-text-invert:  #FFFFFF;
+
+  /* Borders */
+  --bes-border:       rgba(0, 26, 65, 0.08);
+  --bes-border-soft:  rgba(0, 26, 65, 0.04);
+  --bes-border-cyan:  rgba(80, 202, 191, 0.30);
+
+  /* Glass — used liberally in hero and overlays */
+  --bes-glass-bg:     rgba(255, 255, 255, 0.60);
+  --bes-glass-strong: rgba(255, 255, 255, 0.75);
+  --bes-glass-border: rgba(255, 255, 255, 0.80);
+  --bes-glass-shadow: 0 8px 32px 0 rgba(0, 26, 65, 0.04);
+  --bes-glass-blur:   blur(16px);
+
+  /* Semantic */
+  --bes-success:      #10B981;
+  --bes-warn:         #F59E0B;
+  --bes-danger:       #EF4444;
+  --bes-info:         var(--bes-blue);
+
+  /* ---------- TYPOGRAPHY ----------
+     Display: Inter (800-900) — the "hierarchy of calm"
+     Editorial variant: Space Grotesk (documents/proposals)
+     Body: Inter 400/500 */
+  --bes-font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --bes-font-editor:  'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --bes-font-body:    'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --bes-font-mono:    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Type scale (display = big hero, h1..h4 = sections) */
+  --bes-fs-display:   clamp(2.5rem, 5vw, 4.5rem);
+  --bes-fs-h1:        clamp(2rem, 3.5vw, 3rem);
+  --bes-fs-h2:        clamp(1.6rem, 2.6vw, 2.25rem);
+  --bes-fs-h3:        1.25rem;
+  --bes-fs-h4:        1.0625rem;
+  --bes-fs-body:      1rem;
+  --bes-fs-sm:        0.875rem;
+  --bes-fs-xs:        0.75rem;
+  --bes-fs-over:      0.625rem;    /* overlines */
+
+  --bes-lh-tight:     1.1;
+  --bes-lh-snug:      1.25;
+  --bes-lh-body:      1.6;
+
+  --bes-tracking-tight:   -0.02em;   /* display / h1-h3 */
+  --bes-tracking-body:    -0.005em;
+  --bes-tracking-over:    0.20em;    /* OVERLINE UPPER */
+
+  /* ---------- SPACING ----------
+     Extreme negative space is a brand feature — sections are tall. */
+  --bes-space-1:  4px;
+  --bes-space-2:  8px;
+  --bes-space-3:  12px;
+  --bes-space-4:  16px;
+  --bes-space-5:  24px;
+  --bes-space-6:  32px;
+  --bes-space-7:  48px;
+  --bes-space-8:  64px;
+  --bes-space-9:  96px;
+  --bes-space-10: 128px;
+  --bes-section:  128px;   /* 8rem vertical padding on sections */
+
+  /* ---------- RADII ---------- */
+  --bes-radius-sm:   6px;
+  --bes-radius-md:   12px;
+  --bes-radius-lg:   16px;
+  --bes-radius-xl:   20px;
+  --bes-radius-2xl:  24px;
+  --bes-radius-3xl:  48px;   /* hero service cards */
+  --bes-radius-pill: 999px;
+
+  /* ---------- SHADOWS ---------- */
+  --bes-shadow-xs:  0 1px 2px rgba(0, 26, 65, 0.04);
+  --bes-shadow-sm:  0 4px 12px rgba(0, 26, 65, 0.05);
+  --bes-shadow-md:  0 8px 24px rgba(0, 26, 65, 0.06);
+  --bes-shadow-lg:  0 15px 40px rgba(0, 26, 65, 0.08);
+  --bes-shadow-xl:  0 24px 60px rgba(0, 26, 65, 0.10);
+  --bes-shadow-blue: 0 10px 30px rgba(0, 117, 242, 0.20);
+  --bes-shadow-cyan: 0 8px 30px rgba(80, 202, 191, 0.20);
+
+  /* ---------- MOTION ----------
+     Soft, high-end easing. No bounces. */
+  --bes-ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --bes-ease-in:    cubic-bezier(0.7, 0, 0.84, 0);
+  --bes-dur-fast:   200ms;
+  --bes-dur-base:   400ms;
+  --bes-dur-slow:   700ms;
+
+  /* Layout */
+  --bes-maxw:       1200px;
+  --bes-maxw-wide:  1400px;
+}
+
+/* ============================================================
+   SEMANTIC TEXT ROLES
+   Use these classes directly, or the element selectors below.
+   ============================================================ */
+
+.bes-display, .bes-h1, .bes-h2, .bes-h3, .bes-h4 {
+  font-family: var(--bes-font-display);
+  color: var(--bes-text);
+  letter-spacing: var(--bes-tracking-tight);
+  line-height: var(--bes-lh-tight);
+  margin: 0;
+}
+.bes-display { font-size: var(--bes-fs-display); font-weight: 800; }
+.bes-h1      { font-size: var(--bes-fs-h1);      font-weight: 800; }
+.bes-h2      { font-size: var(--bes-fs-h2);      font-weight: 700; line-height: var(--bes-lh-snug); }
+.bes-h3      { font-size: var(--bes-fs-h3);      font-weight: 700; line-height: var(--bes-lh-snug); }
+.bes-h4      { font-size: var(--bes-fs-h4);      font-weight: 700; line-height: var(--bes-lh-snug); }
+
+.bes-body    { font: 400 var(--bes-fs-body)/var(--bes-lh-body) var(--bes-font-body); color: var(--bes-text-muted); }
+.bes-sm      { font: 400 var(--bes-fs-sm)/1.55 var(--bes-font-body);   color: var(--bes-text-muted); }
+.bes-xs      { font: 500 var(--bes-fs-xs)/1.5 var(--bes-font-body);    color: var(--bes-text-soft); }
+
+/* Overline — uppercase, tracking, tiny, ALWAYS navy or blue */
+.bes-over {
+  font: 700 var(--bes-fs-over)/1 var(--bes-font-body);
+  letter-spacing: var(--bes-tracking-over);
+  text-transform: uppercase;
+  color: var(--bes-blue);
+}
+
+/* Editorial heading (for documents / proposals / decks) */
+.bes-editorial {
+  font-family: var(--bes-font-editor);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Gradient text — NAVY → CYAN. Only for 1-2 words in a display. */
+.bes-grad {
+  background: linear-gradient(135deg, var(--bes-navy) 0%, var(--bes-cyan) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+.bes-bg-white     { background: var(--bes-white); }
+.bes-bg-soft      { background: var(--bes-bg-soft); }
+.bes-bg-ice       { background: var(--bes-bg-ice); }
+.bes-bg-navy      { background: var(--bes-navy); color: var(--bes-white); }
+
+.bes-text-navy    { color: var(--bes-navy); }
+.bes-text-blue    { color: var(--bes-blue); }
+.bes-text-cyan    { color: var(--bes-cyan); }
+.bes-text-muted   { color: var(--bes-text-muted); }
+.bes-text-soft    { color: var(--bes-text-soft); }
+
+.bes-glass {
+  background: var(--bes-glass-bg);
+  backdrop-filter: var(--bes-glass-blur);
+  -webkit-backdrop-filter: var(--bes-glass-blur);
+  border: 1px solid var(--bes-glass-border);
+  box-shadow: var(--bes-glass-shadow);
+}
+
+/* Protection gradient — use over busy imagery to protect headlines */
+.bes-protect-top    { background: linear-gradient(to bottom, rgba(0,26,65,0.65), transparent 60%); }
+.bes-protect-bottom { background: linear-gradient(to top,    rgba(0,26,65,0.75), transparent 60%); }
+
+/* "Hero glow" radial — the signature background motif */
+.bes-hero-glow {
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(0, 212, 255, 0.06), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(0, 117, 242, 0.06), transparent 25%);
+}
+
+/* ============================================================
+   ELEMENT DEFAULTS (opt-in — scope to .bes-scope if needed)
+   ============================================================ */
+.bes-scope, .bes-scope * { box-sizing: border-box; }
+.bes-scope {
+  font-family: var(--bes-font-body);
+  color: var(--bes-text);
+  background: var(--bes-white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.bes-scope h1 { font: 800 var(--bes-fs-h1)/var(--bes-lh-tight) var(--bes-font-display); letter-spacing: var(--bes-tracking-tight); color: var(--bes-text); }
+.bes-scope h2 { font: 700 var(--bes-fs-h2)/var(--bes-lh-snug)  var(--bes-font-display); letter-spacing: var(--bes-tracking-tight); color: var(--bes-text); }
+.bes-scope h3 { font: 700 var(--bes-fs-h3)/var(--bes-lh-snug)  var(--bes-font-display); letter-spacing: var(--bes-tracking-tight); color: var(--bes-text); }
+.bes-scope p  { font: 400 var(--bes-fs-body)/var(--bes-lh-body) var(--bes-font-body);    color: var(--bes-text-muted); }
+.bes-scope a  { color: var(--bes-blue); text-decoration: none; transition: color var(--bes-dur-fast) var(--bes-ease-out); }
+.bes-scope a:hover { color: var(--bes-navy); }
